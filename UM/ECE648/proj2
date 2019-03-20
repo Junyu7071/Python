@@ -1,3 +1,86 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from collections import Counter
+
+def Normalize(data):
+    data = (data-data.mean(0)) / data.std(0)
+    return data
+
+class Data_split(object):
+    def __init__(self, data, cl = None, trainsize = 0.7, shuffle = True, randomstate = None, scaling = True):
+        """Split arrays or matrices into random train and test subsets
+        
+        Parameters
+        ----------
+        data: data set input
+        
+        cl: the index of the column including the classes of every record 
+            (default = the last column of data)
+            
+        trainsize: float, int or None, optional (default=0.7)
+            If float, should be between 0.0 and 1.0 and represent the proportion 
+            of the dataset to include in the test split. If int, represents the
+            absolute number of test samples. If None, the value is set to the
+            complement of the train size. By default, the value is set to 0.25
+            
+        shuffle: 
+            Whether or not to shuffle the data before splitting.
+                    
+        """
+        np0 = data.shape
+        self.n = np0[0]
+        self.p = np0[1]
+        self.shuffle = shuffle
+        self.rs = randomstate
+        
+        if self.shuffle is True:
+            if self.rs is not None: 
+                np.random.seed(self.rs)
+            self.data = np.random.permutation(data)
+        self.cl = self.p-1 if cl is None else cl
+        self.X = np.delete(self.data, self.cl, axis=1)
+        
+        if scaling is True:
+            self.X = Normalize(self.X)
+        self.Y = self.data[:, self.cl]
+        self.trainsize = trainsize
+        
+    def data_split(self):
+        """
+        Returns: trainx, trainy, testx, testy
+        """
+        if type(self.trainsize) == int:
+            self.trainsize = trainsize
+        elif type(self.trainsize)  == float or self.trainsize is None:
+            if self.trainsize <0 or self.trainsize>1:
+                raise ValueError("The proportion of training data should between 0.0 and 1.0")
+            else:
+                self.trainsize = int(self.trainsize * self.n)
+        self.trainX = self.X[0:self.trainsize, :]
+        self.trainY = self.Y[0:self.trainsize]
+        self.testX = self.X[self.trainsize:, :]
+        self.testY = self.Y[self.trainsize:]
+        trainX = self.trainX
+        trainY = self.trainY
+        testX = self.testX
+        testY = self.testY
+        return trainX, trainY, testX, testY
+
+bank = pd.read_csv('banknote.txt', header = None,
+                  names = ['var', 'skew', 'curt', 'entro', 'class'])
+bank.head()
+
+bank = np.asanyarray(bank)
+bank.shape
+
+bk = Data_split(bank, cl=4, randomstate = 648)
+trainx, trainy, testx, testy = bk.data_split()
+
+t1 = 0.6*trainy+0.2 # 0.8 vs 0.2
+traint = np.transpose(np.array([t1, 1-t1]))
+traint.shape
+
 class RBFNet(object):
     """Implementation of a Radial Basis Function Network"""
     def __init__(self, x, t, lr=0.01, epochs=100, ncenter = None):
