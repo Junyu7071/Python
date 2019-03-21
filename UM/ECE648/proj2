@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
+import math
+from sklearn import preprocessing
 
 def Normalize(data):
     data = (data-data.mean(0)) / data.std(0)
@@ -74,39 +76,68 @@ bank.head()
 bank = np.asanyarray(bank)
 bank.shape
 
-bk = Data_split(bank, cl=4, randomstate = 648)
+banksub = np.random.permutation(bank)[0:499,:]
+
+bk = Data_split(banksub, cl=4, randomstate = 648)
 trainx, trainy, testx, testy = bk.data_split()
 
-t1 = 0.6*trainy+0.2 # 0.8 vs 0.2
-traint = np.transpose(np.array([t1, 1-t1]))
-traint.shape
+def y_t_transfer(data):
+    target = np.asanyarray(pd.get_dummies(data, prefix = 'class')*0.6 + 0.2)
+    return(target)
 
 class RBFNet(object):
     """Implementation of a Radial Basis Function Network"""
-    def __init__(self, x, t, lr=0.01, epochs=100, ncenter = None):
-        self.x = x
-        self.t = t
-        self.n = data.shape[0] # number of samples
-        self.ncl = t.shape[1] # number of class
+    def __init__(self, SData, lr=0.01, epochs=100, ncenter = None):
+        
+        trainx, trainy, testx, testy = SData.data_split()
+        self.t = y_t_transfer(trainy)
+        self.testt = y_t_transfer(testy)
+        
+        self.x = trainx        
+        self.n = trainx.shape[0] # number of samples
+        self.ncl = self.t.shape[1] # number of class
         self.lr = lr # learning rate
         self.epochs = epochs
         
         # number of hidden neurons
-        if center is None:
+        if ncenter is None:
             self.ncenter = self.n
         else:
             self.ncenter = ncenter
+            np.random.seed(randomstate)
         
-        self.center = self.x[0:self.ncenter, :]
+        self.center = np.random.permutation(self.x)[0:self.ncenter, :]
         
         # initial weights
-        self.w = [1/self.ncenter] * np.ones((self.ncenter, self.ncl))
+        self.w = 1/self.ncenter * np.ones((self.ncenter, self.ncl))
     
     def fit(self):
-        for p in range(n):
-            phi = np.ones(ncenter)
-            for j in range(ncenter):
-                phi[j] = np.exp( - 0.5 * np.sum(np.square(trainx[p, :] - center[j, :])) )
-            y = np.dot(phi, w)
-            sigma =  y * (1-y) * (traint[p,:] - y)
-            w = w + lr * np.dot(phi.reshape(100,1), sigma.reshape(1,2))
+        phi = np.ones((self.n, self.ncenter))
+        for p in range(self.n):
+            for j in range(self.ncenter):
+                d = self.x[p, :] - self.center[j, :]
+                phi[p, j] = np.exp( - 0.5 * np.dot(d, np.transpose(d)) )
+                
+        wnew = self.w
+        MSEnew = 1e10
+        for e in range(self.epochs):
+            Y = np.ones((self.n, self.ncl))
+            for p in range(self.n):
+                y = np.dot(phi[p, :], wnew)
+        #         if math.isinf(y[0]) or math.isinf(y[1]):
+        #             print(e,p,phi[p,:])
+        #             break
+                sigma =  y * (1-y) * (self.t[p,:] - y)
+                wold = wnew
+                wnew = wold + self.lr * np.dot(phi[p, :].reshape(self.ncenter,1), sigma.reshape(1,self.ncl))
+                if np.sum(wnew-wold < 1e-10) > 0.8*self.ncenter*self.ncl:
+                    break
+            e += 1
+            Y = np.dot(phi, wnew)
+            MSEold = MSEnew
+            MSEnew = (np.sum(np.square(self.t - Y))) / self.ncl
+            if MSEold-MSEnew < 1e-5:
+                break
+        return(MSEnew)
+    
+    def predict(self):
