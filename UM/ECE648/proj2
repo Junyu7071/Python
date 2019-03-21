@@ -104,8 +104,9 @@ class RBFNet(object):
             self.ncenter = self.n
         else:
             self.ncenter = ncenter
+            np.random.seed(randomstate)
         
-        self.center = np.random.permutation(data)self.x[0:self.ncenter, :]
+        self.center = np.random.permutation(self.x)[0:self.ncenter, :]
         
         # initial weights
         self.w = 1/self.ncenter * np.ones((self.ncenter, self.ncl))
