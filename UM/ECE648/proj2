@@ -87,13 +87,15 @@ def y_t_transfer(data):
 
 class RBFNet(object):
     """Implementation of a Radial Basis Function Network"""
-    def __init__(self, SData, lr=0.01, epochs=100, ncenter = None):
+    def __init__(self, SData, lr=0.01, epochs=100, ncenter = None, randomstate = 648):
         
         trainx, trainy, testx, testy = SData.data_split()
+        
         self.t = y_t_transfer(trainy)
         self.testt = y_t_transfer(testy)
         
-        self.x = trainx        
+        self.x = trainx
+        self.testx = testx
         self.n = trainx.shape[0] # number of samples
         self.ncl = self.t.shape[1] # number of class
         self.lr = lr # learning rate
@@ -109,7 +111,8 @@ class RBFNet(object):
         self.center = np.random.permutation(self.x)[0:self.ncenter, :]
         
         # initial weights
-        self.w = 1/self.ncenter * np.ones((self.ncenter, self.ncl))
+        self.wold = 1/self.ncenter * np.ones((self.ncenter, self.ncl))
+        self.wnew = 1/self.ncenter * np.ones((self.ncenter, self.ncl))
     
     def fit(self):
         phi = np.ones((self.n, self.ncenter))
@@ -118,7 +121,7 @@ class RBFNet(object):
                 d = self.x[p, :] - self.center[j, :]
                 phi[p, j] = np.exp( - 0.5 * np.dot(d, np.transpose(d)) )
                 
-        wnew = self.w
+        wnew = self.wold
         MSEnew = 1e10
         for e in range(self.epochs):
             Y = np.ones((self.n, self.ncl))
@@ -138,6 +141,21 @@ class RBFNet(object):
             MSEnew = (np.sum(np.square(self.t - Y))) / self.ncl
             if MSEold-MSEnew < 1e-5:
                 break
-        return(MSEnew)
+        self.wnew = wnew
+        return MSEnew
     
     def predict(self):
+        n = self.testx.shape[0]
+        phi = np.ones((n, self.ncenter))
+        for p in range(n):
+            for j in range(self.ncenter):
+                d = self.testx[p, :] - self.center[j, :]
+                phi[p, j] = np.exp( - 0.5 * np.dot(d, np.transpose(d)) )
+        Y = np.dot(phi, self.wnew)
+        MSE = (np.sum(np.square(self.testt - Y))) / self.ncl
+        return MSE
+        
+bk = Data_split(banksub, randomstate = 648)
+rbf = RBFNet(bk)
+rbf.fit() # MSE on training data
+rbf.predict() # MSE on testing data
